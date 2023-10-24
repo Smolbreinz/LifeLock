@@ -5,6 +5,13 @@ pragma solidity ^0.8.19;
 import "./ALegacy.sol";
 import "./MLegacy.sol";
 
+
+// @dev: contract factory that creates
+//       the user safe contract.
+//       Currently still contains the code for the "automate" 
+//       functionality, which will be removed in the next version
+
+
 contract LegacyFactory {
     
     
@@ -17,6 +24,12 @@ contract LegacyFactory {
     constructor (address payable _automateAddress) {
         owner = payable(msg.sender);
         automateAddress = _automateAddress;
+
+    /* takes the address of the gelato automate contract.
+        this will be removed in the next version as it does not represent
+        the desired functionality anymore 
+    */
+
     }
 
     modifier onlyOwner () {
@@ -27,14 +40,22 @@ contract LegacyFactory {
     event manualUserSafeCreated(address owner, address payable recipient, uint timestamp, address mlegacy);
     event autoUserSafeCreated(address owner, address payable recipient, uint timestamp, address alegacy);
 
+    // events emitted upon the creation of an MLegacy contract by a user
 
     struct recipients {
         address owner;
         address legacy;
         address recipient;
+
+    // stores the owner, the owners MLegacy contract address and the recipient (beneficiary)
+    // of the MLegacy contract named by the owner
     }
 
+
     recipients [] public matches;
+
+    // stores recipient structs for all created MLegacy contracts
+    
 
     function getOwnerMatches() public view returns (address){
 
@@ -44,6 +65,9 @@ contract LegacyFactory {
             }
         }
         return address(0);
+
+    // returns the contract of an MLegacy if called by the owner of an MLegacy contract
+
     }
 
     function getMatches(address user) public view returns (address [] memory) {
@@ -62,23 +86,15 @@ contract LegacyFactory {
             result[i] = _legacies[i];
         }
         return result;
+
+    // returns all MLegacies for a specific recipient calling this function.
     }
 
-    /*function modifyMatches (address recipient) external {
-        require (legacies[msg.sender], "only contract owners can call that function");
-         for (uint i = 0; i < matches.length; i++) {
-            if (msg.sender == matches[i].legacy){
-                matches[i].recipient;
-            }
-        }
-    }*/
-
     
-    //called by user to create a new safe
     function createUserSafe(address payable recipient, bool automate) external {
         bool ownerExists = false;
 
-        for ( uint i = 0; i< matches.length; i++){
+        for (uint i = 0; i< matches.length; i++){
             if(matches[i].owner == msg.sender){
                 ownerExists = true;
                 break;
@@ -122,7 +138,14 @@ contract LegacyFactory {
          emit manualUserSafeCreated(msg.sender, recipient, block.timestamp, address(mlegacy));
 
        }
-       
+
+    // called by user to create a new MLegacy contract
+    // the automate function is deprecated and will be removed in the next version
+    // takes the address of the desired recipient and adds the created MLegacy to the
+    // recipients array.
+    // requires that the user address calling this function does not already own an MLegacy
+    // to prevent multiple MLegacies per user
+
     }
 
     receive() external payable {}
