@@ -2,34 +2,23 @@
 
 pragma solidity ^0.8.19;
 
-import "./ALegacy.sol";
 import "./MLegacy.sol";
-
-
-// @dev: contract factory that creates
-//       the user safe contract.
-//       Currently still contains the code for the "automate" 
-//       functionality, which will be removed in the next version
-
 
 contract LegacyFactory {
     
     
     address payable public owner;
-    address payable automateAddress;
-
-   // mapping (address => bool) legacies;
 
 
-    constructor (address payable _automateAddress) {
+   mapping (address => address) public owners;
+
+   mapping (address => address) public recipients_1;
+   mapping (address => address) public recipients_2;
+   mapping (address => address) public recipients_3;
+
+
+    constructor () {
         owner = payable(msg.sender);
-        automateAddress = _automateAddress;
-
-    /* takes the address of the gelato automate contract.
-        this will be removed in the next version as it does not represent
-        the desired functionality anymore 
-    */
-
     }
 
     modifier onlyOwner () {
@@ -37,117 +26,63 @@ contract LegacyFactory {
         _;
     }
 
-    event manualUserSafeCreated(address owner, address payable recipient, uint timestamp, address mlegacy);
-    event autoUserSafeCreated(address owner, address payable recipient, uint timestamp, address alegacy);
-
-    // events emitted upon the creation of an MLegacy contract by a user
-
-    struct recipients {
-        address owner;
-        address legacy;
-        address recipient;
-
-    // stores the owner, the owners MLegacy contract address and the recipient (beneficiary)
-    // of the MLegacy contract named by the owner
-    }
-
-
-    recipients [] public matches;
-
-    // stores recipient structs for all created MLegacy contracts
-    
-
-    function getOwnerMatches() public view returns (address){
-
-        for (uint i = 0; i < matches.length; i++){
-            if(msg.sender == matches[i].owner){
-                return matches[i].legacy;
-            }
-        }
-        return address(0);
-
-    // returns the contract of an MLegacy if called by the owner of an MLegacy contract
-
-    }
-
-    function getMatches(address user) public view returns (address [] memory) {
-        address [] memory _legacies = new address [] (matches.length);
-        uint count = 0;
-
-        for (uint i = 0; i < matches.length; i++) {
-            if (user == matches[i].recipient){
-                _legacies[count]= matches[i].legacy;
-                count++;
-            }
-        }
-            address [] memory result = new address [] (count);
-
-        for (uint i = 0; i < count; i++) {
-            result[i] = _legacies[i];
-        }
-        return result;
-
-    // returns all MLegacies for a specific recipient calling this function.
-    }
+    event manualUserSafeCreated(address owner, address recipient, uint timestamp, address mlegacy);
 
     
-    function createUserSafe(address payable recipient, bool automate) external {
+    //called by user to create a new safe
+    function createUserSafe(address recipient) external {
         bool ownerExists = false;
+        bool recipient1Exists = false;
+        bool recipient2Exists = false;
+        bool recipient3Exists = false;
 
-        for (uint i = 0; i< matches.length; i++){
-            if(matches[i].owner == msg.sender){
-                ownerExists = true;
-                break;
-            }
+        if (recipients_1[recipient] != address(0)){
+            recipient1Exists = true;
         }
 
-       if(automate){
-        require(!ownerExists, "The wallet you are trying to protect already has a protection contract");
-        ALegacy alegacy = new ALegacy(msg.sender, recipient);
-            
-        
-        recipients memory _recipients = recipients({
-            owner: msg.sender,
-            legacy: address(alegacy),
-            recipient: recipient
-        });
+        if (recipients_2[recipient] != address(0)){
+            recipient2Exists = true;
+        }
 
-        matches.push(_recipients);
+        if (recipients_3[recipient] != address(0)){
+            recipient3Exists = true;
+        }
 
-       // legacies[address(alegacy)] = true;
+        if(owners[msg.sender] != address(0)){
+            ownerExists = true;
+        }
 
-        emit autoUserSafeCreated(msg.sender, recipient, block.timestamp, address(alegacy));
-
-       } else{
         require(!ownerExists, "The wallet you are trying to protect already has a protection contract");
 
-         MLegacy mlegacy = new MLegacy(msg.sender, recipient);
-            
+        if(recipient1Exists && recipient2Exists && recipient3Exists){
+            revert("the chosen recipient has already been selected as recipient for three other smart contracts");
+        } else {
+            if(recipient1Exists && recipient2Exists){
+                MLegacy mlegacy = new MLegacy(msg.sender, recipient);
+                owners[msg.sender] = address(mlegacy);
+                recipients_3[recipient] = address(mlegacy);
+                emit manualUserSafeCreated(msg.sender, recipient, block.timestamp, address(mlegacy));
 
-         recipients memory _recipients = recipients({
-            owner: msg.sender,
-            legacy: address(mlegacy),
-            recipient: recipient
-        });
-            
-         matches.push(_recipients);
+            } else {
+                if(recipient1Exists) {
+                    MLegacy mlegacy = new MLegacy(msg.sender, recipient);
+                    owners[msg.sender] = address(mlegacy);
+                    recipients_2[recipient] = address(mlegacy);
+                    emit manualUserSafeCreated(msg.sender, recipient, block.timestamp, address(mlegacy));
 
-        //legacies[address(mlegacy)] = true;
+                } else {
+                    MLegacy mlegacy = new MLegacy(msg.sender, recipient);
+                    owners[msg.sender] = address(mlegacy);
+                    recipients_1[recipient] = address(mlegacy);
+                    emit manualUserSafeCreated(msg.sender, recipient, block.timestamp, address(mlegacy));
 
-
-         emit manualUserSafeCreated(msg.sender, recipient, block.timestamp, address(mlegacy));
-
-       }
-
-    // called by user to create a new MLegacy contract
-    // the automate function is deprecated and will be removed in the next version
-    // takes the address of the desired recipient and adds the created MLegacy to the
-    // recipients array.
-    // requires that the user address calling this function does not already own an MLegacy
-    // to prevent multiple MLegacies per user
+                }
+            }
+        }            
 
     }
-
+       
+    
     receive() external payable {}
     fallback() external payable {}
 
