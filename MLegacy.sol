@@ -10,28 +10,24 @@ import "../dependencies/Types.sol";
 
 
 
-/* @dev: User Safe contract owned by the user.
-    Enables User to protect tokens to be 
-    withdrawable by the recipient as well
-    as the recipient to withdraw the tokens */
-
 contract MLegacy {
 
 
     address public immutable owner;
     address public immutable recipient;
-    uint public payday; //point in time after which nthe assets are withdrawable by the recipient
+    uint public payday;
+    uint public tokenCount = 0;
 
     mapping (address => bool) public whitelist;
-    // whitelist for address who can initiate the withdraw function to 
-    // transfer the assets to the recipient
+    mapping (IERC20 => bool) public safeTokens;
+    mapping (uint => protectedERC20) public safeTokensIndices;
 
     constructor (address _owner, address _recipient) {
         owner = _owner;
         recipient = _recipient;
         whitelist[_owner] = true;
         whitelist[_recipient] = true;
-        payday = block.timestamp + 20 minutes; // default timeframe for testing purposes
+        payday = block.timestamp + 20 minutes;
     }
 
     event addedProtectedToken(IERC20 token, uint amount);
@@ -52,17 +48,11 @@ contract MLegacy {
         _;
     }
 
-     struct protectedERC20{
+    //object to be stored 
+    struct protectedERC20{
         string name;
         IERC20 token;
-
-     //object to be stored 
-     }
-
-
-     protectedERC20 [] public safe; 
-    //stores all the protectedERC20s to be approved to be spent by this contract
-
+    }
 
 
     function setWhitelistAddress(address _whitelist) external onlyOwner {
@@ -70,8 +60,6 @@ contract MLegacy {
         whitelist[_whitelist] = true;
 
         emit whitelistAdded(_whitelist, block.timestamp);
-
-    //add/remove whitelist addresses who can call the withdraw function
 
     }
 
@@ -82,71 +70,46 @@ contract MLegacy {
         emit removeAddress(_whitelist, block.timestamp);
     }
 
-    function getSafe () public view returns (protectedERC20 [] memory) {
-        protectedERC20 [] memory _safe = new protectedERC20 [] (safe.length);
-        uint count=0;
-        
-        for (uint i = 0; i < safe.length; i++) {
-            _safe[count] = safe[i];
-            count++;
-        }
 
-        protectedERC20 [] memory result = new protectedERC20 [] (count);
-        for (uint i = 0; i < count; i++){
-            result[i] = _safe[i];
-        }
-        
-        return result;
+    function protectERC20_2 (IERC20 _token, string memory name) external onlyOwner {
+        require (_token != IERC20(address(0)), "token to be protected cannot be the zero address");
+        if (safeTokens[_token] == true){
+            revert("The Token you are trying to add is already stored in your Safe");
+        } else {
+            safeTokens[_token] = true;
+            safeTokensIndices[tokenCount] = protectedERC20({name: name, token: _token});
+            tokenCount++;
 
-    // returns the protected Tokens to the recipient for him to withdraw them
+            emit tokenProtected(_token, address(this), msg.sender);
+
+        }
     }
 
-    //add asset to protectedERC20s
-    function protectERC20 (string memory _name, IERC20 _token) external onlyOwner {
-        bool tokenFound = false;
-
-        for (uint i = 0; i< safe.length; i++){
-            if (_token == safe[i].token){
-                tokenFound = true;
-                break;
-            }  
+    function getSafe_2 () external view returns (protectedERC20 [] memory){
+        protectedERC20 [] memory safeArray = new protectedERC20 [] (tokenCount);
+        for (uint i = 0; i < tokenCount; i++){
+            safeArray[i] = safeTokensIndices[i];
         }
-        if(!tokenFound){
-         protectedERC20 memory _protectedERC20 = protectedERC20({
-                name: _name,
-                token: _token
-            });
-            safe.push(_protectedERC20);
-        }
-        
-        emit tokenProtected(_token, address(this), msg.sender);
-
-    // adds an ERC20 token selected by the owner to the safe array
+        return safeArray;
     }
+
 
     // set the period until the asstes are to be transfered
     function setPayday(uint _period) external onlyOwner{
         payday = block.timestamp + _period;
+       //legacyFactory.modifyMatches(recipient);
 
        emit periodSet(msg.sender, recipient, block.timestamp, payday);
-
-    // sets the period after which an asset is withdrawable
     }
 
+    //this function can trigger the manual transfer of each token in case the automated transaction has failed
     function failSafe(IERC20 _token, uint _amount) external onlyWhitelist{
         require(block.timestamp > payday, "the period until an asset transfer is possible has not been completed yet");
         _token.transferFrom(owner, recipient, _amount);
-
-    //transfer function called by the recipient or any other whitelisted user.
-    // @params: the amount transferred is the allowance that is fetched in the frontend
-    //          to automatically allow the user to transfer the maximum amount possible
     }
 
     receive() external payable {}
-
-   
-
-
+    
 
 }
 
