@@ -10,8 +10,10 @@ contract LegacyFactory {
     address payable public owner;
 
 
+    // stores all the owners of the mlegacies
    mapping (address => address) public owners;
 
+    //stores all the recipients of mlegacies. every wallet can be the recipient of a max of three mlegacies
    mapping (address => address) public recipients_1;
    mapping (address => address) public recipients_2;
    mapping (address => address) public recipients_3;
@@ -29,7 +31,7 @@ contract LegacyFactory {
     event manualUserSafeCreated(address owner, address recipient, uint timestamp, address mlegacy);
 
     
-    //called by user to create a new safe
+    //called by user to create a new mlegacy. checks if entered recipient is already the recipient of 3 mlegacies
     function createUserSafe(address recipient) external {
         bool ownerExists = false;
         bool recipient1Exists = false;
