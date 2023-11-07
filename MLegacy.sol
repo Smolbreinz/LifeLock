@@ -14,11 +14,11 @@ contract MLegacy {
 
 
     address public immutable owner;
-    address public immutable recipient;
-    uint public payday;
-    uint public tokenCount = 0;
+    address public immutable recipient; // address that is allowed to withdraw tokens
+    uint public payday; //specifies the date after which the assets are withdrawable
+    uint public tokenCount = 0; // stores the amounts of tokens stored in the safeTokensMapping
 
-    mapping (address => bool) public whitelist;
+    mapping (address => bool) public whitelist; //addresses allowed to call the failSafe function
     mapping (IERC20 => bool) public safeTokens;
     mapping (uint => protectedERC20) public safeTokensIndices;
 
@@ -27,7 +27,7 @@ contract MLegacy {
         recipient = _recipient;
         whitelist[_owner] = true;
         whitelist[_recipient] = true;
-        payday = block.timestamp + 20 minutes;
+        payday = block.timestamp + 20 minutes; // default just for testing purposes
     }
 
     event addedProtectedToken(IERC20 token, uint amount);
@@ -71,6 +71,12 @@ contract MLegacy {
     }
 
 
+    /* 
+    protectERC20_2 firstly checks if the token is already stored. 
+    if not, it will map the protectedERC20 to a key, which is tokenCount.
+    */
+
+
     function protectERC20_2 (IERC20 _token, string memory name) external onlyOwner {
         require (_token != IERC20(address(0)), "token to be protected cannot be the zero address");
         require (!safeTokens[_token], "The Token you are trying to add is already stored in your Safe");
@@ -80,6 +86,12 @@ contract MLegacy {
 
             emit tokenProtected(_token, address(this), msg.sender);  
     }
+
+    /* 
+        getSafe_2 instantiates an array of the length tokenCount
+        to then set each element of this array to the protectedERC20 stored ath the tokenCount key in 
+        the safeTokenIndices mapping to reretrieve the tokens stored
+    */
 
     function getSafe_2 () external view returns (protectedERC20 [] memory){
         protectedERC20 [] memory safeArray = new protectedERC20 [] (tokenCount);
@@ -98,7 +110,7 @@ contract MLegacy {
        emit periodSet(msg.sender, recipient, block.timestamp, payday);
     }
 
-    //this function can trigger the manual transfer of each token in case the automated transaction has failed
+    //this function can be triggered by any whitelisted address and will initiate the manual transfer of every single token.
     function failSafe(IERC20 _token, uint _amount) external onlyWhitelist{
         require(block.timestamp > payday, "the period until an asset transfer is possible has not been completed yet");
         _token.transferFrom(owner, recipient, _amount);
