@@ -73,16 +73,12 @@ contract MLegacy {
 
     function protectERC20_2 (IERC20 _token, string memory name) external onlyOwner {
         require (_token != IERC20(address(0)), "token to be protected cannot be the zero address");
-        if (safeTokens[_token] == true){
-            revert("The Token you are trying to add is already stored in your Safe");
-        } else {
+        require (!safeTokens[_token], "The Token you are trying to add is already stored in your Safe");
             safeTokens[_token] = true;
             safeTokensIndices[tokenCount] = protectedERC20({name: name, token: _token});
             tokenCount++;
 
-            emit tokenProtected(_token, address(this), msg.sender);
-
-        }
+            emit tokenProtected(_token, address(this), msg.sender);  
     }
 
     function getSafe_2 () external view returns (protectedERC20 [] memory){
@@ -109,7 +105,7 @@ contract MLegacy {
     }
 
     receive() external payable {}
-    
+
 
 }
 
